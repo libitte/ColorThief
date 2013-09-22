@@ -4,7 +4,8 @@ use warnings;
 use strict;
 use Carp;
 
-use version; $VERSION = qv('0.0.3');
+use version; our $VERSION = qv('0.0.3');
+#use version; $VERSION = qv('0.0.3');
 
 # Other recommended modules (uncomment to use):
 #  use IO::Prompt;
@@ -12,6 +13,10 @@ use version; $VERSION = qv('0.0.3');
 #  use Perl6::Slurp;
 #  use Perl6::Say;
 
+#use Image::Magick;
+use Data::Dumper;
+local $Data::Dumper::Indent = 1;
+local $Data::Dumper::Terse = 1;
 
 # Module implementation here
 
