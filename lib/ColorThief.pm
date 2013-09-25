@@ -28,7 +28,6 @@ sub get_color_name_by_img {
 	my $hsvs_ref = $self->_get_hsv_by_img($img);
 	my $hsvs_with_colors_ref = $self->_get_colors_by_hsv($hsvs_ref);
 	my $color_palette_href = $self->_count_colors_in_palette($hsvs_with_colors_ref);
-	print Dumper $color_palette_href;
 	my $color_name = $self->_get_color_name_by_palette($color_palette_href);
 	return $color_name ? $color_name : "NO-COLOR";
 }
