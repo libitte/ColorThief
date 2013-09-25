@@ -17,8 +17,165 @@ use Image::Magick;
 use Data::Dumper;
 local $Data::Dumper::Indent = 1;
 local $Data::Dumper::Terse = 1;
+use List::Util qw(max min);
+use Carp;
 
-# Module implementation here
+sub get_color_name_by_img {
+	my $self = shift;
+	my ($img) = @_;
+	croak "no image file." unless $img;
+
+	my $hsvs_ref = $self->_get_hsv_by_img($img);
+	my $hsvs_with_colors_ref = $self->_get_colors_by_hsv($hsvs_ref);
+	my $color_palette_href = $self->_count_colors_in_palette($hsvs_with_colors_ref);
+	print Dumper $color_palette_href;
+	my $color_name = $self->_get_color_name_by_palette($color_palette_href);
+	return $color_name ? $color_name : "NO-COLOR";
+}
+
+sub new {
+	my $class = shift;
+	bless {
+	}, $class;
+}
+
+sub _get_hsv_by_img {
+	my $self = shift;
+	my ($img) = @_;
+	$img or return;
+
+	my $im = Image::Magick->new;
+	open(IMAGE, $img);
+	$im->Read(file => \*IMAGE);
+	close(IMAGE);
+
+	my ($w, $h) = $im->Get('width', 'height');
+
+	my @pixels = $im->GetPixels(
+		width => $w,
+		height => $h,
+		x => 0,
+		y => 0,
+		map => 'RGB',
+	);
+
+	my @rgbs;
+	my @hsvs;
+	while (@pixels) {
+		my %rgb_hash;
+		$rgb_hash{r} = (int((shift @pixels) / 256) / 255);
+		$rgb_hash{g} = (int((shift @pixels) / 256) / 255);
+		$rgb_hash{b} = (int((shift @pixels) / 256) / 255);
+		push @rgbs, \%rgb_hash;
+
+		my $max = max $rgb_hash{r}, $rgb_hash{g}, $rgb_hash{b};
+		my $min = min $rgb_hash{r}, $rgb_hash{g}, $rgb_hash{b};
+
+		my %hsv_hash;
+		$hsv_hash{v} = $max;
+		$hsv_hash{s} = 255 * ( ($max - $min) / $max );
+
+		if ($hsv_hash{s} == 0) {
+			#s=0のとき、white-blackの色調で、背景色の可能性が高い
+			next;
+		}
+		elsif ($max == $rgb_hash{r}) {
+			$hsv_hash{h} = 60 * ( ($rgb_hash{g} - $rgb_hash{b}) / ($max - $min) );
+		}
+		elsif ($max == $rgb_hash{g}) {
+			$hsv_hash{h} = 60 * ( 2 + ($rgb_hash{b} - $rgb_hash{r}) / ($max - $min) );
+		}
+		elsif ($max == $rgb_hash{b}) {
+			$hsv_hash{h} = 60 * ( 4 + ($rgb_hash{r} - $rgb_hash{g}) / ($max - $min) );
+		}
+		else {
+			next;
+		}
+		push @hsvs, \%hsv_hash;
+	}
+	return \@hsvs;
+}
+
+sub _get_colors_by_hsv {
+	my $self = shift;
+	my ($hsvs) = @_;
+	return unless (ref($hsvs) eq 'ARRAY');
+
+	my @hsv_with_color;
+	for my $hsv (@$hsvs) {
+		if (!$hsv->{h}) {
+			next;
+		}
+		elsif (($hsv->{h} >= 0 && $hsv->{h} < 20) || ($hsv->{h} >= 330 && $hsv->{h} < 360)) {
+			$hsv->{color} = 'RED';
+		}
+		elsif ($hsv->{h} >= 20 && $hsv->{h} < 50) {
+			$hsv->{color} = 'ORANGE';
+		}
+		elsif ($hsv->{h} >= 50 && $hsv->{h} < 70) {
+			$hsv->{color} = 'YELLOW';
+		}
+		elsif ($hsv->{h} >= 70 && $hsv->{h} < 85) {
+			$hsv->{color} = 'LIME';
+		}
+		elsif ($hsv->{h} >= 85 && $hsv->{h} < 171) {
+			$hsv->{color} = 'GREEN';
+		}
+		elsif ($hsv->{h} >= 171 && $hsv->{h} < 192) {
+			$hsv->{color} = 'AQUA';
+		}
+		elsif ($hsv->{h} >= 192 && $hsv->{h} < 265) {
+			$hsv->{color} = 'BLUE';
+		}
+		elsif ($hsv->{h} >= 265 && $hsv->{h} < 290) {
+			$hsv->{color} = 'VIOLET';
+		}
+		elsif ($hsv->{h} >= 290 && $hsv->{h} < 330) {
+			$hsv->{color} = 'PURPLE';
+		}
+		else {
+			next;
+		}
+		push @hsv_with_color, $hsv;
+	}
+	return \@hsv_with_color;
+}
+
+sub _count_colors_in_palette {
+	my $self = shift;
+	my ($hsv_with_color) = @_;
+
+	my %color_palette = (
+		RED		=> 0,
+		ORANGE	=> 0,
+		YELLOW	=> 0,
+		LIME	=> 0,
+		GREEN	=> 0,
+		AQUA	=> 0,
+		BLUE	=> 0,
+		VIOLET	=> 0,
+		PURPLE	=> 0,
+	);
+
+	my @colors = map { $_->{color} } @$hsv_with_color;
+	for my $color (@colors) {
+		for my $palette_key (keys %color_palette) {
+			if ($color eq $palette_key) {
+				$color_palette{$palette_key}++;
+			}
+		}
+	}
+	return \%color_palette;
+}
+
+sub _get_color_name_by_palette {
+	my $self = shift;
+	my ($color_palette_href) = @_;
+
+	my @sorted_colors = map { $_->[0] } sort { $b->[1] <=> $a->[1] } map { [$_, $color_palette_href->{$_}] } keys %$color_palette_href;
+	return shift @sorted_colors;
+}
+
 
 
 1; # Magic true value required at end of module
