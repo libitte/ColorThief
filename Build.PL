@@ -11,7 +11,7 @@ my $builder = Module::Build->new(
     requires => {
         'Test::More' => 0,
         'version'    => 0,
-#		'Image::Magick' => 0,
+		'Image::Magick' => 0,
     },
     add_to_cleanup      => [ 'ColorThief-*' ],
 );
